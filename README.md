@@ -1,4 +1,4 @@
-# InputStats
+# VibeWorking / InputStats
 
 一个 Windows 桌面小工具，实时统计鼠标移动距离、点击次数、键盘按键次数，并显示基于月薪的实时赚钱进度。
 
