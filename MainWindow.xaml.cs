@@ -93,4 +93,15 @@ public partial class MainWindow : Window
         _hook.Dispose();
         System.Windows.Application.Current.Shutdown();
     }
+
+    private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        DragMove();
+    }
+
+    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+        Hide();
+    }
 }
