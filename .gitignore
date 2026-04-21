@@ -1,4 +1,26 @@
+# Build output
 bin/
 obj/
+publish/
+
+# Compiled artifacts
+*.exe
+*.dll
+*.pdb
+*.cache
+
+# IDE & editor
 .vs/
+.vscode/
+.idea/
+
+# User-specific files
 *.user
+*.suo
+*.DotSettings
+
+# Local logs (if any)
+*.log
+
+# Claude Code local workspace
+.claude/

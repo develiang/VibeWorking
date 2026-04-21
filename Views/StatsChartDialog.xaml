@@ -1,0 +1,119 @@
+<Window x:Class="InputStats.StatsChartDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:InputStats"
+        Title="操作趋势"
+        Width="560"
+        Height="380"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        ResizeMode="CanResizeWithGrip"
+        AllowsTransparency="True"
+        Background="Transparent"
+        FontFamily="Segoe UI, Microsoft YaHei"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+
+    <Window.Resources>
+        <Style x:Key="GranularityButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="GranularityActiveButtonStyle" TargetType="Button" BasedOn="{StaticResource GranularityButtonStyle}">
+            <Setter Property="Background" Value="{DynamicResource ControlBgBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+
+        <Style x:Key="CloseButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource ControlBgBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{DynamicResource WindowBgBrush}" CornerRadius="20" Padding="24">
+        <Border.Effect>
+            <DropShadowEffect Color="#000000" BlurRadius="24" ShadowDepth="6" Opacity="0.35"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 标题栏 -->
+            <Grid Grid.Row="0" Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="操作趋势" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <Button Grid.Column="1" Content="&#x2715;" Style="{StaticResource CloseButtonStyle}"
+                        Click="CloseButton_Click" VerticalAlignment="Top"/>
+            </Grid>
+
+            <!-- 粒度切换 -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
+                <Button x:Name="BtnTenMin" Content="10分钟" Style="{StaticResource GranularityActiveButtonStyle}"
+                        Click="GranularityButton_Click" Margin="0,0,4,0"/>
+                <Button x:Name="BtnHour" Content="小时" Style="{StaticResource GranularityButtonStyle}"
+                        Click="GranularityButton_Click" Margin="0,0,4,0"/>
+                <Button x:Name="BtnDay" Content="天" Style="{StaticResource GranularityButtonStyle}"
+                        Click="GranularityButton_Click"/>
+            </StackPanel>
+
+            <!-- 图表区域 -->
+            <Border Grid.Row="2" Background="{DynamicResource CardBgBrush}" CornerRadius="12" Padding="8"
+                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                <local:LineChartControl x:Name="Chart" ClickData="{Binding ClickData}" KeyData="{Binding KeyData}"/>
+            </Border>
+
+            <!-- 图例 -->
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
+                <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                    <Ellipse Width="8" Height="8" Fill="{DynamicResource StatClickBrush}" Margin="0,0,6,0"/>
+                    <TextBlock Text="鼠标点击" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Fill="{DynamicResource StatKeyBrush}" Margin="0,0,6,0"/>
+                    <TextBlock Text="键盘按键" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

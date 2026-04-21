@@ -32,7 +32,10 @@ public static class DistanceCalculator
         {
             var hr = GetDpiForMonitor(hMon, MDT_EFFECTIVE_DPI, out dpi, out _);
             if (hr != 0)
+            {
+                Logger.Warn($"DPI 查询失败 (hr={hr})，使用默认值 96");
                 dpi = 96;
+            }
         }
 
         return px / dpi * 2.54;
