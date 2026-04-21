@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # 框架依赖版（小体积）
+      - name: Publish Framework-Dependent
+        run: >
+          dotnet publish
+          -c Release
+          -r win-x64
+          --self-contained false
+          -o ./artifacts/framework-dependent
+
+      # 自包含单文件版（开箱即用）
+      - name: Publish Self-Contained
+        run: >
+          dotnet publish
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:EnableCompressionInSingleFile=true
+          -p:SatelliteResourceLanguages=zh-Hans
+          -o ./artifacts/self-contained
+
+      # 创建 Release
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./artifacts/framework-dependent/InputStats.exe
+            ./artifacts/self-contained/InputStats.exe
+          body: |
+            ## 下载
+
+            | 版本 | 体积 | 说明 |
+            |------|------|------|
+            | `InputStats.exe` (框架依赖) | ~1 MB | 需先安装 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
+            | `InputStats.exe` (自包含) | ~60 MB | 开箱即用，无需安装任何运行时 |
+
+            ## 系统要求
+            - Windows 10/11 x64
+            - 框架依赖版需 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
