@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 
 namespace InputStats;
 
@@ -19,6 +20,8 @@ public partial class MainWindow : Window
     private bool _first = true;
 
     private WriteableBitmap? _heatMapBitmap;
+    private byte[]? _heatMapPixels;
+    private DispatcherTimer? _heatMapTimer;
 
     public MainWindow()
     {
@@ -28,15 +31,16 @@ public partial class MainWindow : Window
         _theme = ThemeStorage.Load();
 
         _stats = new StatsService(_settings);
+        if (Environment.GetCommandLineArgs().Any(a => string.Equals(a, "--seed-mock", StringComparison.OrdinalIgnoreCase)))
+        {
+            Logger.Info("检测到 --seed-mock 参数，生成模拟数据");
+            _stats.GenerateMockData();
+        }
         DataContext = _stats;
 
         _hook = new InputHook();
         _hook.MouseMoved += OnMouseMoved;
-        _hook.MouseClicked += (x, y) =>
-        {
-            _stats.AddClick(x, y);
-            Dispatcher.Invoke(RenderHeatMap);
-        };
+        _hook.MouseClicked += (x, y) => _stats.AddClick(x, y);
         _hook.KeyPressed += vk => _stats.AddKey(vk);
         _hook.Start();
 
@@ -67,18 +71,29 @@ public partial class MainWindow : Window
     private void InitializeHeatMap()
     {
         _heatMapBitmap = new WriteableBitmap(StatsService.HeatMapW, StatsService.HeatMapH, 96, 96, PixelFormats.Bgra32, null);
+        _heatMapPixels = new byte[StatsService.HeatMapW * StatsService.HeatMapH * 4];
         HeatMapImage.Source = _heatMapBitmap;
         RenderHeatMap();
+
+        _heatMapTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(250)
+        };
+        _heatMapTimer.Tick += (_, _) =>
+        {
+            if (_stats.HeatMapDirty) RenderHeatMap();
+        };
+        _heatMapTimer.Start();
     }
 
     private void RenderHeatMap()
     {
-        if (_heatMapBitmap == null) return;
+        if (_heatMapBitmap == null || _heatMapPixels == null) return;
 
         int w = StatsService.HeatMapW;
         int h = StatsService.HeatMapH;
         int stride = w * 4;
-        byte[] pixels = new byte[h * stride];
+        var pixels = _heatMapPixels;
         int max = _stats.HeatMapMax;
         var data = _stats.HeatMapData;
 
@@ -96,6 +111,7 @@ public partial class MainWindow : Window
         }
 
         _heatMapBitmap.WritePixels(new Int32Rect(0, 0, w, h), pixels, stride, 0);
+        _stats.ClearHeatMapDirty();
     }
 
     private static System.Windows.Media.Color HeatColor(int value, int max)
@@ -180,6 +196,7 @@ public partial class MainWindow : Window
     private void CloseApp()
     {
         Logger.Info("应用退出");
+        _heatMapTimer?.Stop();
         _stats.Save();
         _tray.Dispose();
         _hook.Dispose();
@@ -229,6 +246,12 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ModeToggleButton_Click(object sender, RoutedEventArgs e)
+    {
+        _stats.ToggleDisplayMode();
+        Logger.Debug("用户切换显示模式：" + _stats.CurrentDisplayMode);
+    }
+
     private void ViewButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new StatsChartDialog(_stats) { Owner = this };
@@ -244,6 +267,8 @@ public partial class MainWindow : Window
             _settings.UpdateIntervalSeconds = dialog.Settings.UpdateIntervalSeconds;
             _settings.WorkStartTime = dialog.Settings.WorkStartTime;
             _settings.WorkEndTime = dialog.Settings.WorkEndTime;
+            _settings.RememberCloseChoice = dialog.Settings.RememberCloseChoice;
+            _settings.CloseAction = dialog.Settings.CloseAction;
             AppSettingsStorage.Save(_settings);
             _stats.ApplySettings(_settings);
             Logger.Debug("用户保存设置");
