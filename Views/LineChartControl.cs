@@ -280,6 +280,13 @@ public class LineChartControl : Canvas
                 p2.X - (p3.X - p1.X) / 6.0,
                 p2.Y - (p3.Y - p1.Y) / 6.0);
 
+            // 把控制点 Y 钳制到当前段两端点的 Y 区间内，防止曲线过冲
+            // （例如某点为 0 时不会跌破基线/坐标轴）
+            double minY = Math.Min(p1.Y, p2.Y);
+            double maxY = Math.Max(p1.Y, p2.Y);
+            c1.Y = Math.Clamp(c1.Y, minY, maxY);
+            c2.Y = Math.Clamp(c2.Y, minY, maxY);
+
             bez.Points.Add(c1);
             bez.Points.Add(c2);
             bez.Points.Add(p2);
