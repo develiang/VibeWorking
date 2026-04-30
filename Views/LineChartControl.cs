@@ -258,40 +258,71 @@ public class LineChartControl : Canvas
     }
 
     /// <summary>
-    /// Catmull-Rom 转三次贝塞尔的平滑曲线，张力 0.5。
-    /// 调用前需保证 pts.Count >= 3。
+    /// Fritsch–Carlson 单调三次插值（Monotone Cubic Hermite），转为三次贝塞尔。
+    /// 既保持平滑、又严格不过冲：相邻段单调时整段单调，0 值处自然贴住基线。
+    /// 调用前需保证 pts.Count >= 3，且 X 严格递增。
     /// </summary>
     private static PathGeometry BuildSmoothGeometry(List<System.Windows.Point> pts)
     {
+        int n = pts.Count;
+
+        // 1) 段斜率 d[k]
+        var d = new double[n - 1];
+        for (int k = 0; k < n - 1; k++)
+        {
+            double dx = pts[k + 1].X - pts[k].X;
+            d[k] = dx == 0 ? 0 : (pts[k + 1].Y - pts[k].Y) / dx;
+        }
+
+        // 2) 节点切线 m[k]
+        var m = new double[n];
+        m[0] = d[0];
+        m[n - 1] = d[n - 2];
+        for (int k = 1; k < n - 1; k++)
+        {
+            if (d[k - 1] * d[k] <= 0)
+                m[k] = 0; // 极值点或平段，强制水平，避免过冲
+            else
+                m[k] = (d[k - 1] + d[k]) / 2.0;
+        }
+
+        // 3) Fritsch–Carlson 修正：保证单调性
+        for (int k = 0; k < n - 1; k++)
+        {
+            if (d[k] == 0)
+            {
+                m[k] = 0;
+                m[k + 1] = 0;
+                continue;
+            }
+            double a = m[k] / d[k];
+            double b = m[k + 1] / d[k];
+            double s = a * a + b * b;
+            if (s > 9.0)
+            {
+                double t = 3.0 / Math.Sqrt(s);
+                m[k] = t * a * d[k];
+                m[k + 1] = t * b * d[k];
+            }
+        }
+
+        // 4) Hermite -> 三次贝塞尔：C1 = P0 + m0*Δx/3, C2 = P1 - m1*Δx/3
         var figure = new PathFigure { StartPoint = pts[0], IsClosed = false, IsFilled = false };
         var bez = new PolyBezierSegment { IsStroked = true };
-
-        for (int i = 0; i < pts.Count - 1; i++)
+        for (int k = 0; k < n - 1; k++)
         {
-            var p0 = i == 0 ? pts[i] : pts[i - 1];
-            var p1 = pts[i];
-            var p2 = pts[i + 1];
-            var p3 = i + 2 < pts.Count ? pts[i + 2] : pts[i + 1];
-
+            double dx = pts[k + 1].X - pts[k].X;
             var c1 = new System.Windows.Point(
-                p1.X + (p2.X - p0.X) / 6.0,
-                p1.Y + (p2.Y - p0.Y) / 6.0);
+                pts[k].X + dx / 3.0,
+                pts[k].Y + m[k] * dx / 3.0);
             var c2 = new System.Windows.Point(
-                p2.X - (p3.X - p1.X) / 6.0,
-                p2.Y - (p3.Y - p1.Y) / 6.0);
-
-            // 把控制点 Y 钳制到当前段两端点的 Y 区间内，防止曲线过冲
-            // （例如某点为 0 时不会跌破基线/坐标轴）
-            double minY = Math.Min(p1.Y, p2.Y);
-            double maxY = Math.Max(p1.Y, p2.Y);
-            c1.Y = Math.Clamp(c1.Y, minY, maxY);
-            c2.Y = Math.Clamp(c2.Y, minY, maxY);
+                pts[k + 1].X - dx / 3.0,
+                pts[k + 1].Y - m[k + 1] * dx / 3.0);
 
             bez.Points.Add(c1);
             bez.Points.Add(c2);
-            bez.Points.Add(p2);
+            bez.Points.Add(pts[k + 1]);
         }
-
         figure.Segments.Add(bez);
         var pg = new PathGeometry();
         pg.Figures.Add(figure);
