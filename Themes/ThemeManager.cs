@@ -5,20 +5,31 @@ namespace InputStats;
 public static class ThemeManager
 {
     private const string ThemeDictUri = "pack://application:,,,/InputStats;component/Themes/{0}Theme.xaml";
+    private const string DatePickerThemeUri = "pack://application:,,,/InputStats;component/Themes/DatePickerTheme.xaml";
+
+    private static bool IsPrimaryThemeDictionary(Uri? source)
+    {
+        if (source == null) return false;
+        var s = source.OriginalString.Replace('\\', '/');
+        return s.EndsWith("/DarkTheme.xaml", StringComparison.OrdinalIgnoreCase)
+            || s.EndsWith("/LightTheme.xaml", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsDatePickerThemeDictionary(Uri? source)
+    {
+        if (source == null) return false;
+        var s = source.OriginalString.Replace('\\', '/');
+        return s.EndsWith("/DatePickerTheme.xaml", StringComparison.OrdinalIgnoreCase);
+    }
 
     public static void ApplyTheme(AppTheme theme)
     {
         var app = System.Windows.Application.Current;
         if (app == null) return;
 
-        // 移除旧的主题字典
-        var oldDicts = app.Resources.MergedDictionaries
-            .Where(d => d.Source?.OriginalString.Contains("Theme.xaml") == true)
-            .ToList();
-        foreach (var d in oldDicts)
+        foreach (var d in app.Resources.MergedDictionaries.Where(d => IsPrimaryThemeDictionary(d.Source)).ToList())
             app.Resources.MergedDictionaries.Remove(d);
 
-        // 加载新主题字典
         string themeFile = string.Format(ThemeDictUri, theme);
         try
         {
@@ -29,6 +40,19 @@ public static class ThemeManager
         catch (Exception ex)
         {
             Logger.Error($"加载主题失败: {themeFile}", ex);
+        }
+
+        foreach (var d in app.Resources.MergedDictionaries.Where(d => IsDatePickerThemeDictionary(d.Source)).ToList())
+            app.Resources.MergedDictionaries.Remove(d);
+
+        try
+        {
+            var datePickerDict = new ResourceDictionary { Source = new Uri(DatePickerThemeUri, UriKind.Absolute) };
+            app.Resources.MergedDictionaries.Add(datePickerDict);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"加载 DatePicker 主题失败: {DatePickerThemeUri}", ex);
         }
     }
 

@@ -58,9 +58,21 @@
         </WrapPanel>
 
         <StackPanel Grid.Row="2" x:Name="CustomRangePanel" Orientation="Horizontal" Visibility="Collapsed" Margin="0,0,0,8">
-            <DatePicker x:Name="StartDatePicker" Width="120" FontSize="12"/>
+            <DatePicker x:Name="StartDatePicker"
+                        Width="120"
+                        FontSize="12"
+                        Style="{DynamicResource ThemedDatePickerStyle}"
+                        Background="{DynamicResource CardBgBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        Foreground="{DynamicResource TextSecondaryBrush}"/>
             <TextBlock Text=" 至 " VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-            <DatePicker x:Name="EndDatePicker" Width="120" FontSize="12"/>
+            <DatePicker x:Name="EndDatePicker"
+                        Width="120"
+                        FontSize="12"
+                        Style="{DynamicResource ThemedDatePickerStyle}"
+                        Background="{DynamicResource CardBgBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        Foreground="{DynamicResource TextSecondaryBrush}"/>
             <Button Content="应用" Margin="8,0,0,0" Padding="12,4" FontSize="12"
                     Background="{DynamicResource ControlBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                     BorderThickness="0" Click="ApplyCustomRange_Click">

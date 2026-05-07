@@ -286,9 +286,16 @@ public static class StatsStorage
 
 public class DailyStats
 {
+    /// <summary>当日 0:00–24:00 累计（与历史文件含义一致）。</summary>
     public long Clicks { get; set; }
     public long Keys { get; set; }
     public double Cm { get; set; }
+
+    /// <summary>当日设定工作时间段内的累计（与设置中的上下班时间一致）。</summary>
+    public long WorkClicks { get; set; }
+    public long WorkKeys { get; set; }
+    public double WorkCm { get; set; }
+
     public Dictionary<int, long> KeyCounts { get; set; } = new();
     public List<TimeBucket> TenMinutes { get; set; } = new();
     public int HeatMapMax { get; set; }

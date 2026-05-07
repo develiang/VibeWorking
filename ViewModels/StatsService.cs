@@ -8,9 +8,11 @@ using System.Windows.Forms;
 
 namespace InputStats;
 
+/// <summary>统计页展示口径：当日全天、当日仅工作时段、历史累计。</summary>
 public enum DisplayMode
 {
-    Today,
+    TodayFullDay,
+    TodayWorkHours,
     Total
 }
 
@@ -22,6 +24,9 @@ public sealed class StatsService : INotifyPropertyChanged
     private long _clicks;
     private long _keys;
     private double _cm;
+    private long _workClicks;
+    private long _workKeys;
+    private double _workCm;
     private long _totalClicks;
     private long _totalKeys;
     private double _totalCm;
@@ -40,7 +45,8 @@ public sealed class StatsService : INotifyPropertyChanged
 
     private AppSettings _settings;
     private DateTime _currentDate;
-    private DisplayMode _displayMode = DisplayMode.Today;
+    private DisplayMode _displayMode = DisplayMode.TodayFullDay;
+    private RoiWeights _roiWeights = new();
 
     public long Clicks => Interlocked.Read(ref _clicks);
     public long Keys => Interlocked.Read(ref _keys);
@@ -49,9 +55,36 @@ public sealed class StatsService : INotifyPropertyChanged
         get { lock (_lock) return _cm; }
     }
 
-    public long DisplayClicks => _displayMode == DisplayMode.Today ? Clicks : (_totalClicks + Clicks);
-    public long DisplayKeys => _displayMode == DisplayMode.Today ? Keys : (_totalKeys + Keys);
-    public double DisplayCm => _displayMode == DisplayMode.Today ? Cm : (_totalCm + Cm);
+    public long WorkClicks => Interlocked.Read(ref _workClicks);
+    public long WorkKeys => Interlocked.Read(ref _workKeys);
+    public double WorkCm
+    {
+        get { lock (_lock) return _workCm; }
+    }
+
+    public long DisplayClicks => _displayMode switch
+    {
+        DisplayMode.TodayFullDay => Clicks,
+        DisplayMode.TodayWorkHours => WorkClicks,
+        DisplayMode.Total => _totalClicks + Clicks,
+        _ => Clicks
+    };
+
+    public long DisplayKeys => _displayMode switch
+    {
+        DisplayMode.TodayFullDay => Keys,
+        DisplayMode.TodayWorkHours => WorkKeys,
+        DisplayMode.Total => _totalKeys + Keys,
+        _ => Keys
+    };
+
+    public double DisplayCm => _displayMode switch
+    {
+        DisplayMode.TodayFullDay => Cm,
+        DisplayMode.TodayWorkHours => WorkCm,
+        DisplayMode.Total => _totalCm + Cm,
+        _ => Cm
+    };
 
     public int[,] HeatMapData => _heatMapData;
     public int HeatMapMax => _heatMapMax;
@@ -93,7 +126,25 @@ public sealed class StatsService : INotifyPropertyChanged
         }
     }
 
-    public string ModeButtonText => _displayMode == DisplayMode.Today ? "切换累计" : "切换当日";
+    public double CurrentRoi
+    {
+        get
+        {
+            if (!_roiWeights.IsCalibrated)
+                return 0;
+            return RoiCalculator.ComputeRoi(WorkClicks, WorkKeys, WorkCm, _roiWeights.WClicks, _roiWeights.WKeys, _roiWeights.WCm);
+        }
+    }
+
+    public string RoiStatusText
+    {
+        get
+        {
+            if (_roiWeights.IsCalibrated)
+                return $"工作强度 {CurrentRoi:F2}";
+            return $"校准中 ({_roiWeights.CalibrationCount}/3)";
+        }
+    }
 
     public string TopKeysText
     {
@@ -227,6 +278,8 @@ public sealed class StatsService : INotifyPropertyChanged
     {
         Interlocked.Increment(ref _clicks);
         Interlocked.Increment(ref _intervalClicks);
+        if (IsWithinConfiguredWorkHours(DateTime.Now))
+            Interlocked.Increment(ref _workClicks);
 
         var (gx, gy) = MapPointToHeatGrid(x, y, SystemInformation.VirtualScreen);
 
@@ -252,6 +305,7 @@ public sealed class StatsService : INotifyPropertyChanged
 
         _heatMapDirty = true;
         OnPropertyChanged(nameof(Clicks));
+        OnPropertyChanged(nameof(WorkClicks));
         OnPropertyChanged(nameof(DisplayClicks));
     }
 
@@ -281,16 +335,25 @@ public sealed class StatsService : INotifyPropertyChanged
     {
         Interlocked.Increment(ref _keys);
         Interlocked.Increment(ref _intervalKeys);
+        if (IsWithinConfiguredWorkHours(DateTime.Now))
+            Interlocked.Increment(ref _workKeys);
         _keyCounts.AddOrUpdate(vkCode, 1, (_, count) => count + 1);
         OnPropertyChanged(nameof(Keys));
+        OnPropertyChanged(nameof(WorkKeys));
         OnPropertyChanged(nameof(DisplayKeys));
         OnPropertyChanged(nameof(TopKeysText));
     }
 
     public void AddCm(double value)
     {
-        lock (_lock) { _cm += value; }
+        lock (_lock)
+        {
+            _cm += value;
+            if (IsWithinConfiguredWorkHours(DateTime.Now))
+                _workCm += value;
+        }
         OnPropertyChanged(nameof(Cm));
+        OnPropertyChanged(nameof(WorkCm));
         OnPropertyChanged(nameof(DisplayCm));
     }
 
@@ -321,7 +384,13 @@ public sealed class StatsService : INotifyPropertyChanged
         var saved = StatsStorage.Load(_currentDate);
         Interlocked.Exchange(ref _clicks, saved.Clicks);
         Interlocked.Exchange(ref _keys, saved.Keys);
-        lock (_lock) { _cm = saved.Cm; }
+        Interlocked.Exchange(ref _workClicks, saved.WorkClicks);
+        Interlocked.Exchange(ref _workKeys, saved.WorkKeys);
+        lock (_lock)
+        {
+            _cm = saved.Cm;
+            _workCm = saved.WorkCm;
+        }
         foreach (var kvp in saved.KeyCounts)
         {
             _keyCounts[kvp.Key] = kvp.Value;
@@ -345,7 +414,11 @@ public sealed class StatsService : INotifyPropertyChanged
         // 恢复当天10分钟历史
         _history.Restore(saved.TenMinutes, null, null);
 
-        Logger.Info($"StatsService 初始化完成，日期 {_currentDate:yyyyMMdd}，已加载存档：点击 {saved.Clicks}，按键 {saved.Keys}，移动 {saved.Cm:F2} cm");
+        Logger.Info($"StatsService 初始化完成，日期 {_currentDate:yyyyMMdd}，已加载存档：点击 {saved.Clicks}（工作时段 {saved.WorkClicks}），按键 {saved.Keys}（工作时段 {saved.WorkKeys}），移动 {saved.Cm:F2} cm（工作时段 {saved.WorkCm:F2}）");
+
+        _roiWeights = RoiStorage.Load();
+        Logger.Info($"ROI 权重加载完成：已校准 {_roiWeights.IsCalibrated}，记录数 {_roiWeights.CalibrationCount}");
+
         UpdateEarnings();
         StartEarningsTimer();
         StartHistoryTimer();
@@ -397,10 +470,76 @@ public sealed class StatsService : INotifyPropertyChanged
         SaveHeatMapForDate(today);
     }
 
-    public void ToggleDisplayMode()
+    public bool TryAddCalibration(double userRoi)
     {
-        CurrentDisplayMode = _displayMode == DisplayMode.Today ? DisplayMode.Total : DisplayMode.Today;
-        OnPropertyChanged(nameof(ModeButtonText));
+        var entry = new RoiCalibrationEntry
+        {
+            Date = DateTime.Now,
+            WorkClicks = WorkClicks,
+            WorkKeys = WorkKeys,
+            WorkCm = WorkCm,
+            UserRoi = userRoi
+        };
+
+        _roiWeights.History.Add(entry);
+        _roiWeights.CalibrationCount = _roiWeights.History.Count;
+
+        if (_roiWeights.CalibrationCount >= 3)
+        {
+            if (RoiCalculator.TryComputeWeights(_roiWeights.History, out var wC, out var wK, out var wM))
+            {
+                _roiWeights.WClicks = wC;
+                _roiWeights.WKeys = wK;
+                _roiWeights.WCm = wM;
+                RoiStorage.Save(_roiWeights);
+                OnPropertyChanged(nameof(CurrentRoi));
+                OnPropertyChanged(nameof(RoiStatusText));
+                return true;
+            }
+            else
+            {
+                Logger.Warn("ROI 权重计算失败，保留历史记录等待更多校准数据");
+                RoiStorage.Save(_roiWeights);
+                return false;
+            }
+        }
+
+        RoiStorage.Save(_roiWeights);
+        OnPropertyChanged(nameof(CurrentRoi));
+        OnPropertyChanged(nameof(RoiStatusText));
+        return true;
+    }
+
+    public bool NeedsCalibration => !_roiWeights.IsCalibrated || _roiWeights.CalibrationCount < 3;
+
+    public int CalibrationCount => _roiWeights.CalibrationCount;
+
+    /// <summary>当前时间是否落在设置的工作时段内（跨午夜时：在工作开始之后或结束之前）。</summary>
+    private bool IsWithinConfiguredWorkHours(DateTime now)
+    {
+        TimeSpan start = TimeSpan.Zero;
+        TimeSpan end = TimeSpan.FromHours(24);
+        try
+        {
+            if (!string.IsNullOrEmpty(_settings.WorkStartTime))
+                start = TimeSpan.ParseExact(_settings.WorkStartTime, "hh\\:mm", CultureInfo.InvariantCulture);
+            if (!string.IsNullOrEmpty(_settings.WorkEndTime))
+                end = TimeSpan.ParseExact(_settings.WorkEndTime, "hh\\:mm", CultureInfo.InvariantCulture);
+        }
+        catch
+        {
+            return true;
+        }
+
+        var daySeconds = (end - start).TotalSeconds;
+        if (daySeconds <= 0)
+            return true;
+
+        var t = now.TimeOfDay;
+        if (start < end)
+            return t >= start && t <= end;
+
+        return t >= start || t <= end;
     }
 
     public List<TimeBucket> GetHistory(TimeGranularity granularity)
@@ -631,6 +770,9 @@ public sealed class StatsService : INotifyPropertyChanged
             Clicks = Clicks,
             Keys = Keys,
             Cm = Cm,
+            WorkClicks = WorkClicks,
+            WorkKeys = WorkKeys,
+            WorkCm = WorkCm,
             KeyCounts = _keyCounts.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
             TenMinutes = _history.Get(TimeGranularity.TenMinutes),
             HeatMapMax = max,
@@ -650,7 +792,13 @@ public sealed class StatsService : INotifyPropertyChanged
     {
         Interlocked.Exchange(ref _clicks, 0);
         Interlocked.Exchange(ref _keys, 0);
-        lock (_lock) { _cm = 0; }
+        Interlocked.Exchange(ref _workClicks, 0);
+        Interlocked.Exchange(ref _workKeys, 0);
+        lock (_lock)
+        {
+            _cm = 0;
+            _workCm = 0;
+        }
         _keyCounts.Clear();
         lock (_heatMapData)
         {
@@ -706,6 +854,9 @@ public sealed class StatsService : INotifyPropertyChanged
 
         double elapsedMonthSeconds = fullWorkDays * dailyWorkSeconds + elapsedDaySeconds;
         EarningsMonth = elapsedMonthSeconds * salaryPerSecond;
+
+        OnPropertyChanged(nameof(CurrentRoi));
+        OnPropertyChanged(nameof(RoiStatusText));
     }
 
     public void GenerateMockData()
@@ -787,6 +938,9 @@ public sealed class StatsService : INotifyPropertyChanged
             Clicks = dailyClicks,
             Keys = dailyKeys,
             Cm = dailyCm,
+            WorkClicks = (long)(dailyClicks * 0.52),
+            WorkKeys = (long)(dailyKeys * 0.52),
+            WorkCm = dailyCm * 0.52,
             TenMinutes = tenMinutes,
             KeyCounts = keyCounts,
             HeatMapMax = rnd.Next(100, 500)

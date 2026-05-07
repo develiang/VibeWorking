@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -71,6 +72,18 @@ public partial class MainWindow : Window
         NavStats.IsChecked = true;
 
         Logger.Info("主窗口初始化完成");
+
+        // 延迟 3 秒后检查是否需要 ROI 校准
+        var calibrationTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(3)
+        };
+        calibrationTimer.Tick += (_, _) =>
+        {
+            calibrationTimer.Stop();
+            CheckAndPromptCalibration();
+        };
+        calibrationTimer.Start();
     }
 
     private void SidebarNav_Checked(object sender, RoutedEventArgs e)
@@ -211,9 +224,61 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ModeToggleButton_Click(object sender, RoutedEventArgs e)
+    private bool IsPastWorkEndTime()
     {
-        _stats.ToggleDisplayMode();
-        Logger.Debug("用户切换显示模式：" + _stats.CurrentDisplayMode);
+        try
+        {
+            if (!string.IsNullOrEmpty(_settings.WorkEndTime))
+            {
+                var endTime = TimeSpan.ParseExact(_settings.WorkEndTime, "hh\\:mm", System.Globalization.CultureInfo.InvariantCulture);
+                return DateTime.Now.TimeOfDay >= endTime;
+            }
+        }
+        catch
+        {
+            // 解析失败时默认允许校准
+        }
+        return true;
+    }
+
+    private void CheckAndPromptCalibration()
+    {
+        if (!_stats.NeedsCalibration)
+            return;
+
+        // 检查今天是否已经有校准记录
+        var today = DateTime.Today;
+        var weights = RoiStorage.Load();
+        if (weights.History.Any(h => h.Date.Date == today))
+            return;
+
+        // 检查今天是否有工作时段数据
+        if (_stats.WorkClicks == 0 && _stats.WorkKeys == 0 && _stats.WorkCm == 0)
+            return;
+
+        // 检查当前时间是否已过工作结束时间（避免工作时段中途打扰）
+        if (!IsPastWorkEndTime())
+            return;
+
+        Logger.Info("触发 ROI 校准提示");
+        var dialog = new RoiCalibrationDialog(_stats.WorkClicks, _stats.WorkKeys, _stats.WorkCm, _stats.CalibrationCount)
+        {
+            Owner = this
+        };
+
+        if (dialog.ShowDialog() == true && !dialog.Skipped)
+        {
+            if (_stats.TryAddCalibration(dialog.SelectedRoi))
+            {
+                var msg = _stats.CalibrationCount >= 3
+                    ? "ROI 权重校准完成！以后将自动计算工作强度。"
+                    : $"校准记录已保存（{_stats.CalibrationCount}/3），还需 {3 - _stats.CalibrationCount} 次即可完成校准。";
+                System.Windows.MessageBox.Show(msg, "校准成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            else
+            {
+                System.Windows.MessageBox.Show("权重计算失败，可能是校准数据过于相似。请明天继续校准。", "校准失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
     }
 }
