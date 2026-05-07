@@ -3,8 +3,12 @@ namespace InputStats;
 public enum TimeGranularity
 {
     TenMinutes,
+    ThirtyMinutes,
     Hour,
-    Day
+    Day,
+    SevenDays,
+    ThirtyDays,
+    CustomRange
 }
 
 public class TimeBucket
@@ -80,6 +84,24 @@ public class TimeSeriesCollection
             if (tenMin != null) TenMinutes = Trim(tenMin, MaxTenMinutes);
             if (hours != null) Hours = Trim(hours, MaxHours);
             if (days != null) Days = Trim(days, MaxDays);
+        }
+    }
+
+    public void ResetDaily()
+    {
+        lock (_lock)
+        {
+            TenMinutes.Clear();
+        }
+    }
+
+    public void Reset()
+    {
+        lock (_lock)
+        {
+            TenMinutes.Clear();
+            Hours.Clear();
+            Days.Clear();
         }
     }
 

@@ -53,4 +53,66 @@
     <SolidColorBrush x:Key="StatClickBrush" Color="{StaticResource StatClickColor}"></SolidColorBrush>
     <SolidColorBrush x:Key="StatKeyBrush" Color="{StaticResource StatKeyColor}"></SolidColorBrush>
     <SolidColorBrush x:Key="NavButtonHoverFgBrush" Color="{StaticResource NavButtonHoverFgColor}"></SolidColorBrush>
+
+    <!-- 内容区侧边滚动条 -->
+    <SolidColorBrush x:Key="ScrollBarTrackBrush" Color="#00000000"/>
+    <SolidColorBrush x:Key="ScrollBarThumbBrush" Color="#99A0A4B8"/>
+    <SolidColorBrush x:Key="ScrollBarThumbHoverBrush" Color="#CCE94560"/>
+    <SolidColorBrush x:Key="ScrollBarThumbPressedBrush" Color="#E6C73E54"/>
+
+    <Style x:Key="ThemedScrollBarThumbStyle" TargetType="Thumb">
+        <Setter Property="Background" Value="{DynamicResource ScrollBarThumbBrush}"/>
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="MinWidth" Value="28"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border x:Name="ThumbBd" Background="{TemplateBinding Background}" CornerRadius="5" Margin="2,2"/>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ThumbBd" Property="Background" Value="{DynamicResource ScrollBarThumbHoverBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="ThumbBd" Property="Background" Value="{DynamicResource ScrollBarThumbPressedBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="ThemedScrollBarStyle" TargetType="ScrollBar">
+        <Setter Property="Background" Value="{DynamicResource ScrollBarTrackBrush}"/>
+        <Setter Property="Width" Value="10"/>
+        <Setter Property="MinWidth" Value="10"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid SnapsToDevicePixels="True" Background="{TemplateBinding Background}">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True" Focusable="False">
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource ThemedScrollBarThumbStyle}"/>
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Orientation" Value="Horizontal">
+                            <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="NaN"/>
+                <Setter Property="MinWidth" Value="0"/>
+                <Setter Property="Height" Value="10"/>
+                <Setter Property="MinHeight" Value="10"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- 全局：DatePicker 日历、ComboBox 下拉、ListBox 等内嵌 ScrollBar -->
+    <Style TargetType="ScrollBar" BasedOn="{StaticResource ThemedScrollBarStyle}"/>
 </ResourceDictionary>

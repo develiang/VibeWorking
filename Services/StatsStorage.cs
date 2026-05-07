@@ -348,6 +348,9 @@ public class AppSettings
     public bool RememberCloseChoice { get; set; }
     public CloseAction CloseAction { get; set; }
 
+    /// <summary>登录 Windows 后是否自动启动本应用。</summary>
+    public bool StartWithWindows { get; set; }
+
     public double MonthlySalary { get; set; } = 23500;
     public double UpdateIntervalSeconds { get; set; } = 1;
     public string WorkStartTime { get; set; } = "09:00";

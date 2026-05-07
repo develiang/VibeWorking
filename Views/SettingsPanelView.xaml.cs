@@ -2,42 +2,73 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
 
 namespace InputStats;
 
-public partial class SettingsDialog : Window
+public sealed class SettingsSavedEventArgs : EventArgs
 {
     public AppSettings Settings { get; }
+    public AppTheme Theme { get; }
+
+    public SettingsSavedEventArgs(AppSettings settings, AppTheme theme)
+    {
+        Settings = settings;
+        Theme = theme;
+    }
+}
+
+public partial class SettingsPanelView : System.Windows.Controls.UserControl
+{
+    public AppSettings Settings { get; private set; } = null!;
     public AppTheme Theme { get; set; }
 
-    public SettingsDialog(AppSettings currentSettings, AppTheme currentTheme)
+    public event EventHandler<SettingsSavedEventArgs>? Saved;
+    public event EventHandler? Cancelled;
+
+    private bool _boxesInitialized;
+
+    public SettingsPanelView()
     {
         InitializeComponent();
+    }
+
+    public void ReloadFrom(AppSettings currentSettings, AppTheme currentTheme)
+    {
         Theme = currentTheme;
         Settings = new AppSettings
         {
             RememberCloseChoice = currentSettings.RememberCloseChoice,
             CloseAction = currentSettings.CloseAction,
+            StartWithWindows = currentSettings.StartWithWindows,
             MonthlySalary = currentSettings.MonthlySalary,
             UpdateIntervalSeconds = currentSettings.UpdateIntervalSeconds,
             WorkStartTime = currentSettings.WorkStartTime,
             WorkEndTime = currentSettings.WorkEndTime,
         };
 
-        InitTimeBoxes();
-        InitThemeBox();
+        if (!_boxesInitialized)
+        {
+            InitTimeBoxes();
+            InitThemeBox();
+            InitCloseActionBox();
+            _boxesInitialized = true;
+        }
 
         MonthlySalaryBox.Text = Settings.MonthlySalary.ToString("F0", CultureInfo.InvariantCulture);
         UpdateIntervalBox.Text = Settings.UpdateIntervalSeconds.ToString(CultureInfo.InvariantCulture);
         SetTimeToBoxes(Settings.WorkStartTime, StartHourBox, StartMinuteBox);
         SetTimeToBoxes(Settings.WorkEndTime, EndHourBox, EndMinuteBox);
         ThemeBox.SelectedIndex = (int)Theme;
+        CloseActionBox.SelectedIndex = Settings.RememberCloseChoice ? (int)Settings.CloseAction : 0;
+        StartWithWindowsCheck.IsChecked = Settings.StartWithWindows;
     }
 
     private void InitTimeBoxes()
     {
+        StartHourBox.Items.Clear();
+        EndHourBox.Items.Clear();
+        StartMinuteBox.Items.Clear();
+        EndMinuteBox.Items.Clear();
         for (int h = 0; h < 24; h++)
         {
             string text = h.ToString("D2", CultureInfo.InvariantCulture);
@@ -54,8 +85,17 @@ public partial class SettingsDialog : Window
 
     private void InitThemeBox()
     {
+        ThemeBox.Items.Clear();
         ThemeBox.Items.Add("深色");
         ThemeBox.Items.Add("浅色");
+    }
+
+    private void InitCloseActionBox()
+    {
+        CloseActionBox.Items.Clear();
+        CloseActionBox.Items.Add("每次询问");
+        CloseActionBox.Items.Add("最小化到托盘");
+        CloseActionBox.Items.Add("直接退出");
     }
 
     private static void SetTimeToBoxes(string timeStr, System.Windows.Controls.ComboBox hourBox, System.Windows.Controls.ComboBox minuteBox)
@@ -98,17 +138,24 @@ public partial class SettingsDialog : Window
         Settings.WorkEndTime = GetTimeFromBoxes(EndHourBox, EndMinuteBox);
         Theme = (AppTheme)ThemeBox.SelectedIndex;
 
-        DialogResult = true;
+        int closeIndex = CloseActionBox.SelectedIndex;
+        Settings.RememberCloseChoice = closeIndex != 0;
+        Settings.CloseAction = closeIndex == 0 ? CloseAction.Ask :
+                               closeIndex == 1 ? CloseAction.MinimizeToTray : CloseAction.Exit;
+
+        Settings.StartWithWindows = StartWithWindowsCheck.IsChecked == true;
+        if (!WindowsStartupRegistration.Apply(Settings.StartWithWindows, out var startupErr))
+        {
+            System.Windows.MessageBox.Show(startupErr ?? "无法更新开机自启动设置。", "开机自启动", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        Saved?.Invoke(this, new SettingsSavedEventArgs(Settings, Theme));
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
-        DialogResult = false;
-    }
-
-    private void CloseButton_Click(object sender, RoutedEventArgs e)
-    {
-        DialogResult = false;
+        Cancelled?.Invoke(this, EventArgs.Empty);
     }
 
     private void OpenLogFolderButton_Click(object sender, RoutedEventArgs e)
@@ -116,10 +163,5 @@ public partial class SettingsDialog : Window
         var dir = Logger.GetLogDirectory();
         Directory.CreateDirectory(dir);
         Process.Start(new ProcessStartInfo("explorer", dir) { UseShellExecute = true });
-    }
-
-    private void Border_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        DragMove();
     }
 }

@@ -1,11 +1,12 @@
 <Window x:Class="InputStats.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:InputStats"
         Title="Input Stats"
         MinHeight="480"
-        MinWidth="400"
-        Height="480"
-        Width="400"
+        MinWidth="560"
+        Height="560"
+        Width="680"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         ResizeMode="CanResizeWithGrip"
@@ -15,61 +16,6 @@
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
 
     <Window.Resources>
-        <!-- 卡片圆角 -->
-        <Style x:Key="CardStyle" TargetType="Border">
-            <Setter Property="Background" Value="{DynamicResource CardBgBrush}"/>
-            <Setter Property="CornerRadius" Value="16"/>
-            <Setter Property="Padding" Value="16"/>
-            <Setter Property="Margin" Value="0,6"/>
-            <Setter Property="Effect">
-                <Setter.Value>
-                    <DropShadowEffect Color="#000000" BlurRadius="12" ShadowDepth="2" Opacity="0.2"/>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- 统计数字样式 -->
-        <Style x:Key="StatValueStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="22"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="HorizontalAlignment" Value="Right"/>
-        </Style>
-
-        <!-- 统计标签样式 -->
-        <Style x:Key="StatLabelStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-        </Style>
-
-        <!-- 按钮样式 -->
-        <Style x:Key="ResetButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="{DynamicResource ControlBgBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="16,12"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="12">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource ControlHoverBgBrush}"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource ControlPressedBgBrush}"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- 关闭按钮样式 -->
         <Style x:Key="CloseButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
@@ -95,13 +41,12 @@
             </Setter>
         </Style>
 
-        <!-- 顶部导航按钮样式 -->
         <Style x:Key="NavButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="10,4"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontSize" Value="11"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -122,140 +67,100 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="SidebarNavRadioStyle" TargetType="RadioButton">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="6,4"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="NavBd" Background="Transparent" CornerRadius="10" Padding="10,12">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="NavBd" Property="Background" Value="{DynamicResource ControlBgBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="False"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="NavBd" Property="Background" Value="{DynamicResource CardBgBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
-    <Border Background="{DynamicResource WindowBgBrush}" CornerRadius="20" Padding="24">
+    <Border Background="{DynamicResource WindowBgBrush}" CornerRadius="20" Padding="0">
         <Border.Effect>
             <DropShadowEffect Color="#000000" BlurRadius="24" ShadowDepth="6" Opacity="0.35"/>
         </Border.Effect>
 
         <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="96"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-            <!-- 标题栏 -->
-            <Grid Grid.Row="0" Margin="0,0,0,20">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock Text="VibeWorking" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}"/>
-                    <TextBlock Text="输入统计与薪资追踪" FontSize="11" Foreground="{DynamicResource TextDimBrush}" Margin="0,2,0,0"/>
-                </StackPanel>
-                <Button Grid.Column="1" Content="视图" Style="{StaticResource NavButtonStyle}"
-                        Click="ViewButton_Click" VerticalAlignment="Top" Margin="0,0,4,0"/>
-                <Button Grid.Column="2" Content="设置" Style="{StaticResource NavButtonStyle}"
-                        Click="SettingsButton_Click" VerticalAlignment="Top" Margin="0,0,8,0"/>
-                <Button Grid.Column="3" Content="&#x2715;" Style="{StaticResource CloseButtonStyle}"
-                        Click="CloseButton_Click" VerticalAlignment="Top"/>
-            </Grid>
-
-            <!-- 收入卡片（突出显示） -->
-            <Border Grid.Row="1" Style="{StaticResource CardStyle}" Background="{DynamicResource CardAltBgBrush}">
+            <!-- 左侧侧栏：垂直居中导航 -->
+            <Border Grid.Column="0" Background="{DynamicResource CardAltBgBrush}" CornerRadius="20,0,0,20" Padding="0,16" Margin="0">
                 <Grid>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="今日已赚" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,4"/>
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding EarningsToday, StringFormat='¥{0:F4}'}"
-                               FontSize="20" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}"/>
-
-                    <TextBlock Grid.Row="0" Grid.Column="1" Text="本月已赚" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,4" HorizontalAlignment="Right"/>
-                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding EarningsMonth, StringFormat='¥{0:F4}'}"
-                               FontSize="20" FontWeight="Bold" Foreground="{DynamicResource SecondaryBrush}" HorizontalAlignment="Right"/>
+                    <StackPanel Grid.Row="1" VerticalAlignment="Center">
+                        <RadioButton x:Name="NavStats" Style="{StaticResource SidebarNavRadioStyle}" Content="统计"
+                                     GroupName="MainNav" Checked="SidebarNav_Checked" Tag="Stats"/>
+                        <RadioButton x:Name="NavTrend" Style="{StaticResource SidebarNavRadioStyle}" Content="趋势"
+                                     GroupName="MainNav" Checked="SidebarNav_Checked" Tag="Trend"/>
+                        <RadioButton x:Name="NavSettings" Style="{StaticResource SidebarNavRadioStyle}" Content="设置"
+                                     GroupName="MainNav" Checked="SidebarNav_Checked" Tag="Settings"/>
+                    </StackPanel>
                 </Grid>
             </Border>
 
-            <!-- 统计卡片 -->
-            <StackPanel Grid.Row="2" Margin="0,8,0,0">
-                <!-- 鼠标移动 -->
-                <Border Style="{StaticResource CardStyle}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x1F5A5;" FontSize="18" Margin="0,0,8,0"/>
-                            <TextBlock Text="鼠标移动" Style="{StaticResource StatLabelStyle}"/>
-                        </StackPanel>
-                        <TextBlock Grid.Column="1" Text="{Binding Cm, StringFormat='{}{0:F2} cm'}" Style="{StaticResource StatValueStyle}" Foreground="{DynamicResource StatMouseBrush}"/>
-                    </Grid>
-                </Border>
+            <!-- 右侧：顶栏 + 内容 -->
+            <Grid Grid.Column="1" Margin="20,20,20,20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-                <!-- 鼠标点击 -->
-                <Border Style="{StaticResource CardStyle}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x1F5B0;" FontSize="18" Margin="0,0,8,0"/>
-                            <TextBlock Text="鼠标点击" Style="{StaticResource StatLabelStyle}"/>
-                        </StackPanel>
-                        <TextBlock Grid.Column="1" Text="{Binding Clicks}" Style="{StaticResource StatValueStyle}" Foreground="{DynamicResource StatClickBrush}"/>
-                    </Grid>
-                </Border>
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="VibeWorking" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource PrimaryBrush}"/>
+                        <TextBlock Text="输入统计与薪资追踪" FontSize="11" Foreground="{DynamicResource TextDimBrush}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" x:Name="ModeToggleButton" Content="{Binding ModeButtonText}" Style="{StaticResource NavButtonStyle}"
+                            Click="ModeToggleButton_Click" VerticalAlignment="Top" Margin="0,0,8,0"/>
+                    <Button Grid.Column="2" Content="&#x2715;" Style="{StaticResource CloseButtonStyle}"
+                            Click="CloseButton_Click" VerticalAlignment="Top"/>
+                </Grid>
 
-                <!-- 点击热区 -->
-                <Border Style="{StaticResource CardStyle}" Background="{DynamicResource CardAltBgBrush}" Padding="12">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Text="&#x1F5A5; 点击热区" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,8"/>
-                        <Border Grid.Row="1" Background="{DynamicResource HeatMapBgBrush}" CornerRadius="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" HorizontalAlignment="Center" ClipToBounds="True">
-                            <Image x:Name="HeatMapImage" Width="280" Height="157" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="LowQuality"/>
-                        </Border>
-                    </Grid>
-                </Border>
-
-                <!-- 键盘按键 -->
-                <Border Style="{StaticResource CardStyle}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x2328;" FontSize="18" Margin="0,0,8,0"/>
-                            <TextBlock Text="键盘按键" Style="{StaticResource StatLabelStyle}"/>
-                        </StackPanel>
-                        <TextBlock Grid.Column="1" Text="{Binding Keys}" Style="{StaticResource StatValueStyle}" Foreground="{DynamicResource StatKeyBrush}"/>
-                    </Grid>
-                </Border>
-
-                <!-- 热门按键 -->
-                <Border Style="{StaticResource CardStyle}" Background="{DynamicResource CardAltBgBrush}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Text="&#x1F3C6; 热门按键 TOP5" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,8"/>
-                        <TextBlock Grid.Row="1" Text="{Binding TopKeysText}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
-                    </Grid>
-                </Border>
-            </StackPanel>
-
-            <!-- 底部按钮 -->
-            <Button Grid.Row="3" Content="重置统计" Click="Reset_Click"
-                    Style="{StaticResource ResetButtonStyle}" Margin="0,16,0,0"/>
+                <Grid Grid.Row="1">
+                    <local:StatsOverviewView x:Name="StatsPage" Visibility="Visible"/>
+                    <local:StatsTrendView x:Name="TrendPage" Visibility="Collapsed"/>
+                    <local:SettingsPanelView x:Name="SettingsPage" Visibility="Collapsed"/>
+                </Grid>
+            </Grid>
         </Grid>
     </Border>
 </Window>

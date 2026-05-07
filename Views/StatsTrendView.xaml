@@ -1,0 +1,93 @@
+<UserControl x:Class="InputStats.StatsTrendView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:InputStats"
+             FontFamily="Segoe UI, Microsoft YaHei">
+
+    <UserControl.Resources>
+        <Style x:Key="GranularityButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="GranularityActiveButtonStyle" TargetType="Button" BasedOn="{StaticResource GranularityButtonStyle}">
+            <Setter Property="Background" Value="{DynamicResource ControlBgBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="操作趋势" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+
+        <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+            <Button x:Name="BtnTenMin" Content="10分钟" Style="{StaticResource GranularityActiveButtonStyle}"
+                    Click="GranularityButton_Click" Margin="0,0,4,4"/>
+            <Button x:Name="BtnThirtyMin" Content="30分钟" Style="{StaticResource GranularityButtonStyle}"
+                    Click="GranularityButton_Click" Margin="0,0,4,4"/>
+            <Button x:Name="BtnHour" Content="1小时" Style="{StaticResource GranularityButtonStyle}"
+                    Click="GranularityButton_Click" Margin="0,0,4,4"/>
+            <Button x:Name="BtnDay" Content="1天" Style="{StaticResource GranularityButtonStyle}"
+                    Click="GranularityButton_Click" Margin="0,0,4,4"/>
+            <Button x:Name="BtnSevenDays" Content="7天" Style="{StaticResource GranularityButtonStyle}"
+                    Click="GranularityButton_Click" Margin="0,0,4,4"/>
+            <Button x:Name="BtnThirtyDays" Content="30天" Style="{StaticResource GranularityButtonStyle}"
+                    Click="GranularityButton_Click" Margin="0,0,4,4"/>
+            <Button x:Name="BtnCustom" Content="自选" Style="{StaticResource GranularityButtonStyle}"
+                    Click="GranularityButton_Click"/>
+        </WrapPanel>
+
+        <StackPanel Grid.Row="2" x:Name="CustomRangePanel" Orientation="Horizontal" Visibility="Collapsed" Margin="0,0,0,8">
+            <DatePicker x:Name="StartDatePicker" Width="120" FontSize="12"/>
+            <TextBlock Text=" 至 " VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <DatePicker x:Name="EndDatePicker" Width="120" FontSize="12"/>
+            <Button Content="应用" Margin="8,0,0,0" Padding="12,4" FontSize="12"
+                    Background="{DynamicResource ControlBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                    BorderThickness="0" Click="ApplyCustomRange_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+        </StackPanel>
+
+        <Border Grid.Row="3" Background="{DynamicResource CardBgBrush}" CornerRadius="12" Padding="8"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" MinHeight="200">
+            <local:LineChartControl x:Name="Chart" ClickData="{Binding ClickData}" KeyData="{Binding KeyData}"/>
+        </Border>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
+            <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                <Ellipse Width="8" Height="8" Fill="{DynamicResource StatClickBrush}" Margin="0,0,6,0"/>
+                <TextBlock Text="鼠标点击" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <Ellipse Width="8" Height="8" Fill="{DynamicResource StatKeyBrush}" Margin="0,0,6,0"/>
+                <TextBlock Text="键盘按键" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>

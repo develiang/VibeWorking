@@ -1,10 +1,8 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Threading;
 
 namespace InputStats;
 
@@ -19,15 +17,14 @@ public partial class MainWindow : Window
     private int _lastY;
     private bool _first = true;
 
-    private WriteableBitmap? _heatMapBitmap;
-    private byte[]? _heatMapPixels;
-    private DispatcherTimer? _heatMapTimer;
-
     public MainWindow()
     {
         InitializeComponent();
 
         _settings = AppSettingsStorage.Load();
+        if (!WindowsStartupRegistration.Apply(_settings.StartWithWindows, out var startupSyncErr) && _settings.StartWithWindows)
+            Logger.Warn("开机自启动已开启但未能同步到注册表: " + (startupSyncErr ?? "未知原因"));
+
         _theme = ThemeStorage.Load();
 
         _stats = new StatsService(_settings);
@@ -37,6 +34,13 @@ public partial class MainWindow : Window
             _stats.GenerateMockData();
         }
         DataContext = _stats;
+
+        StatsPage.Attach(_stats);
+        StatsPage.StatsReset += (_, _) => _first = true;
+        TrendPage.Attach(_stats);
+        SettingsPage.ReloadFrom(_settings, _theme);
+        SettingsPage.Saved += SettingsPage_Saved;
+        SettingsPage.Cancelled += (_, _) => SettingsPage.ReloadFrom(_settings, _theme);
 
         _hook = new InputHook();
         _hook.MouseMoved += OnMouseMoved;
@@ -64,91 +68,59 @@ public partial class MainWindow : Window
                 Hide();
         };
 
-        InitializeHeatMap();
+        NavStats.IsChecked = true;
+
         Logger.Info("主窗口初始化完成");
     }
 
-    private void InitializeHeatMap()
+    private void SidebarNav_Checked(object sender, RoutedEventArgs e)
     {
-        _heatMapBitmap = new WriteableBitmap(StatsService.HeatMapW, StatsService.HeatMapH, 96, 96, PixelFormats.Bgra32, null);
-        _heatMapPixels = new byte[StatsService.HeatMapW * StatsService.HeatMapH * 4];
-        HeatMapImage.Source = _heatMapBitmap;
-        RenderHeatMap();
+        if (sender is not System.Windows.Controls.RadioButton { Tag: string tag, IsChecked: true })
+            return;
 
-        _heatMapTimer = new DispatcherTimer(DispatcherPriority.Background)
+        switch (tag)
         {
-            Interval = TimeSpan.FromMilliseconds(250)
-        };
-        _heatMapTimer.Tick += (_, _) =>
-        {
-            if (_stats.HeatMapDirty) RenderHeatMap();
-        };
-        _heatMapTimer.Start();
+            case "Stats":
+                StatsPage.Visibility = Visibility.Visible;
+                TrendPage.Visibility = Visibility.Collapsed;
+                SettingsPage.Visibility = Visibility.Collapsed;
+                break;
+            case "Trend":
+                StatsPage.Visibility = Visibility.Collapsed;
+                TrendPage.Visibility = Visibility.Visible;
+                SettingsPage.Visibility = Visibility.Collapsed;
+                break;
+            case "Settings":
+                StatsPage.Visibility = Visibility.Collapsed;
+                TrendPage.Visibility = Visibility.Collapsed;
+                SettingsPage.Visibility = Visibility.Visible;
+                SettingsPage.ReloadFrom(_settings, _theme);
+                break;
+        }
     }
 
-    private void RenderHeatMap()
+    private void SettingsPage_Saved(object? sender, SettingsSavedEventArgs e)
     {
-        if (_heatMapBitmap == null || _heatMapPixels == null) return;
+        _settings.MonthlySalary = e.Settings.MonthlySalary;
+        _settings.UpdateIntervalSeconds = e.Settings.UpdateIntervalSeconds;
+        _settings.WorkStartTime = e.Settings.WorkStartTime;
+        _settings.WorkEndTime = e.Settings.WorkEndTime;
+        _settings.RememberCloseChoice = e.Settings.RememberCloseChoice;
+        _settings.CloseAction = e.Settings.CloseAction;
+        _settings.StartWithWindows = e.Settings.StartWithWindows;
+        AppSettingsStorage.Save(_settings);
+        _stats.ApplySettings(_settings);
+        Logger.Debug("用户保存设置");
 
-        int w = StatsService.HeatMapW;
-        int h = StatsService.HeatMapH;
-        int stride = w * 4;
-        var pixels = _heatMapPixels;
-        int max = _stats.HeatMapMax;
-        var data = _stats.HeatMapData;
-
-        for (int y = 0; y < h; y++)
+        if (_theme != e.Theme)
         {
-            for (int x = 0; x < w; x++)
-            {
-                var c = HeatColor(data[x, y], max);
-                int idx = y * stride + x * 4;
-                pixels[idx] = c.B;
-                pixels[idx + 1] = c.G;
-                pixels[idx + 2] = c.R;
-                pixels[idx + 3] = 255;
-            }
+            _theme = e.Theme;
+            ThemeStorage.Save(_theme);
+            ThemeManager.ApplyTheme(_theme);
+            System.Windows.MessageBox.Show("主题已切换，重启后完全生效。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
-        _heatMapBitmap.WritePixels(new Int32Rect(0, 0, w, h), pixels, stride, 0);
-        _stats.ClearHeatMapDirty();
-    }
-
-    private static System.Windows.Media.Color HeatColor(int value, int max)
-    {
-        if (max <= 0 || value <= 0) return System.Windows.Media.Colors.Black;
-
-        double t = Math.Log(1 + value) / Math.Log(1 + max);
-        t = Math.Min(1.0, t * 1.5);
-
-        byte r, g, b;
-        if (t < 0.2)
-        {
-            double s = t / 0.2;
-            r = 0; g = 0; b = (byte)(s * 50);
-        }
-        else if (t < 0.4)
-        {
-            double s = (t - 0.2) / 0.2;
-            r = 0; g = 0; b = (byte)(50 + s * 205);
-        }
-        else if (t < 0.6)
-        {
-            double s = (t - 0.4) / 0.2;
-            r = 0; g = (byte)(s * 255); b = 255;
-        }
-        else if (t < 0.8)
-        {
-            double s = (t - 0.6) / 0.2;
-            r = (byte)(s * 255); g = 255; b = (byte)((1 - s) * 255);
-        }
-        else
-        {
-            double s = (t - 0.8) / 0.2;
-            r = 255; g = (byte)((1 - s) * 255); b = 0;
-        }
-
-        return System.Windows.Media.Color.FromRgb(r, g, b);
+        NavStats.IsChecked = true;
     }
 
     private void OnMouseMoved(int x, int y)
@@ -177,14 +149,6 @@ public partial class MainWindow : Window
         Logger.Debug("窗口从托盘恢复显示");
     }
 
-    private void Reset_Click(object sender, RoutedEventArgs e)
-    {
-        _stats.Reset();
-        _first = true;
-        RenderHeatMap();
-        Logger.Debug("用户点击重置统计");
-    }
-
     protected override void OnClosing(CancelEventArgs e)
     {
         e.Cancel = true;
@@ -196,7 +160,8 @@ public partial class MainWindow : Window
     private void CloseApp()
     {
         Logger.Info("应用退出");
-        _heatMapTimer?.Stop();
+        StatsPage.StopHeatMapTimer();
+        TrendPage.StopRefreshTimer();
         _stats.Save();
         _tray.Dispose();
         _hook.Dispose();
@@ -250,36 +215,5 @@ public partial class MainWindow : Window
     {
         _stats.ToggleDisplayMode();
         Logger.Debug("用户切换显示模式：" + _stats.CurrentDisplayMode);
-    }
-
-    private void ViewButton_Click(object sender, RoutedEventArgs e)
-    {
-        var dialog = new StatsChartDialog(_stats) { Owner = this };
-        dialog.ShowDialog();
-    }
-
-    private void SettingsButton_Click(object sender, RoutedEventArgs e)
-    {
-        var dialog = new SettingsDialog(_settings, _theme) { Owner = this };
-        if (dialog.ShowDialog() == true)
-        {
-            _settings.MonthlySalary = dialog.Settings.MonthlySalary;
-            _settings.UpdateIntervalSeconds = dialog.Settings.UpdateIntervalSeconds;
-            _settings.WorkStartTime = dialog.Settings.WorkStartTime;
-            _settings.WorkEndTime = dialog.Settings.WorkEndTime;
-            _settings.RememberCloseChoice = dialog.Settings.RememberCloseChoice;
-            _settings.CloseAction = dialog.Settings.CloseAction;
-            AppSettingsStorage.Save(_settings);
-            _stats.ApplySettings(_settings);
-            Logger.Debug("用户保存设置");
-
-            if (_theme != dialog.Theme)
-            {
-                _theme = dialog.Theme;
-                ThemeStorage.Save(_theme);
-                ThemeManager.ApplyTheme(_theme);
-                System.Windows.MessageBox.Show("主题已切换，重启后完全生效。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-        }
     }
 }
