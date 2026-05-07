@@ -23,7 +23,6 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      # 自包含单文件发布（用于绿色版和安装版的基础）
       - name: Publish Self-Contained
         run: >
           dotnet publish
@@ -34,7 +33,6 @@ jobs:
           -p:SatelliteResourceLanguages=zh-Hans
           -o ./artifacts/self-contained
 
-      # 绿色版：打包完整目录为 ZIP
       - name: Create Portable ZIP
         shell: pwsh
         run: |
@@ -44,54 +42,24 @@ jobs:
           Write-Output "Created $zipName"
           Get-ChildItem ./artifacts/*.zip | Select-Object Name, Length
 
-      # 安装版：安装 Inno Setup 并生成安装程序
-      - name: Build Installer with Inno Setup
-        shell: pwsh
-        run: |
-          choco install innosetup -y
-          $iscc = "C:\Program Files (x86)\Inno Setup 6\iscc.exe"
-          $version = "${{ env.APP_VERSION }}"
-          & $iscc /DAppVersion=$version Setup\setup.iss
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          # 移动生成的安装程序到 artifacts
-          $setupFile = "Setup\InputStats-$version-setup.exe"
-          if (Test-Path $setupFile) {
-            Move-Item -Path $setupFile -Destination "./artifacts/" -Force
-            Write-Output "Installer built: $setupFile"
-          } else {
-            Write-Error "Installer not found: $setupFile"
-            exit 1
-          }
-          Get-ChildItem ./artifacts/*.exe | Select-Object Name, Length
-
-      # 创建 Release
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            ./artifacts/InputStats-*-portable.zip
-            ./artifacts/InputStats-*-setup.exe
+          files: ./artifacts/InputStats-*-portable.zip
           body: |
             ## 下载
 
             | 文件 | 说明 |
             |------|------|
             | `InputStats-${{ env.APP_VERSION }}-portable.zip` | **绿色版 / 便携版**：解压即用，无需安装 |
-            | `InputStats-${{ env.APP_VERSION }}-setup.exe` | **安装版**：一键安装，支持桌面快捷方式和卸载 |
 
             ## 系统要求
             - Windows 10/11 x64
             - 已包含 .NET 8 运行时，无需额外安装
 
-            ## 绿色版使用说明
+            ## 使用说明
             1. 下载 ZIP 文件
             2. 解压到任意目录
             3. 运行 `InputStats.exe`
-
-            ## 安装版特性
-            - 支持自定义安装路径
-            - 可选创建桌面快捷方式
-            - 支持卸载（通过系统设置或安装目录的 `unins000.exe`）
-            - 无需管理员权限（默认安装到用户目录）
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
