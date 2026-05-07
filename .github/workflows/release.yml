@@ -44,20 +44,15 @@ jobs:
           Write-Output "Created $zipName"
           Get-ChildItem ./artifacts/*.zip | Select-Object Name, Length
 
-      # 安装版：使用 Inno Setup 生成安装程序
-      - name: Install Inno Setup
-        shell: pwsh
-        run: |
-          choco install innosetup -y
-          $env:PATH += ";C:\Program Files (x86)\Inno Setup 6"
-          iscc /?
-
+      # 安装版：安装 Inno Setup 并生成安装程序
       - name: Build Installer with Inno Setup
         shell: pwsh
         run: |
-          $env:PATH += ";C:\Program Files (x86)\Inno Setup 6"
+          choco install innosetup -y
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\iscc.exe"
           $version = "${{ env.APP_VERSION }}"
-          iscc /DAppVersion=$version Setup\setup.iss
+          & $iscc /DAppVersion=$version Setup\setup.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # 移动生成的安装程序到 artifacts
           $setupFile = "Setup\InputStats-$version-setup.exe"
           if (Test-Path $setupFile) {
